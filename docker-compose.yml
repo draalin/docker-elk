@@ -18,13 +18,16 @@ services:
       - "9200:9200"
       - "9300:9300"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
+      ES_JAVA_OPTS: "-Xmx1024m -Xms1024m"
       # Use single node discovery in order to disable production mode and avoid bootstrap checks
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+      ELASTIC_PASSWORD: ${PASSWORD}
       discovery.type: single-node
-    networks:
-      - elk
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.elastic.rule=Host(`logs.${DOMAIN}`)"
+      - "traefik.http.routers.elastic.entrypoints=elastic"
+      - "traefik.http.routers.elastic.tls.certresolver=mytlschallenge"
 
   logstash:
     build:
@@ -44,9 +47,7 @@ services:
       - "5000:5000"
       - "9600:9600"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
-    networks:
-      - elk
+      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
     depends_on:
       - elasticsearch
 
@@ -60,16 +61,21 @@ services:
         source: ./kibana/config/kibana.yml
         target: /usr/share/kibana/config/kibana.yml
         read_only: true
-    ports:
-      - "5601:5601"
-    networks:
-      - elk
+    #ports:
+    #  - "80:5601"
     depends_on:
       - elasticsearch
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kibana.rule=Host(`logs.${DOMAIN}`)"
+      - "traefik.http.routers.kibana.entrypoints=websecure"
+      - "traefik.http.routers.kibana.tls.certresolver=mytlschallenge"
 
-networks:
-  elk:
-    driver: bridge
 
 volumes:
   elasticsearch:
+
+networks:
+  default:
+    external:
+      name: gateway
